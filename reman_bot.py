@@ -11,13 +11,13 @@ options = {
 			'port': '8000' # порт клиента
 		},
 	},
+	'token': '', # токен API telegram-бота
 	'allowed_chats': [ # чаты с которыми будет общаться бот
 		'' # здесь перечисляем id чатов через запятую
 	]
 }
 
-API_TOKEN = '' # токен API telegram-бота
-bot = telebot.TeleBot(API_TOKEN)
+bot = telebot.TeleBot(options['token'])
 context = {}
 
 back_button = '« Назад'
