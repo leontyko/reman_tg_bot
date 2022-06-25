@@ -210,7 +210,8 @@ def openLink(message):
 	data = url_prefix + message.text
 	try:
 		result = media_query(context[message.chat.id], data)
-		ok_or_fail(c.id, result)
+		if result:
+			ok_or_fail(c.id, result)
 	except Exception as e:
 		bot.send_message(message.chat.id, "Произошла ошибка: " + str(e))
 	init_chat(message.chat.id)
@@ -223,7 +224,8 @@ def powerCommand(message):
 		return
 	try:
 		result = pwr_query(message, message.text)
-		ok_or_fail(c.id, result)
+		if result:
+			ok_or_fail(c.id, result)
 	except Exception as e:
 		bot.send_message(message.chat.id, "Произошла ошибка: " + str(e))
 	init_chat(message.chat.id)
