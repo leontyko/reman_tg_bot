@@ -1,6 +1,6 @@
-# ReMan Telegram bot
+# reMan Telegram bot
 
-Telegram-бот, работающий с [клиентом ReMan](https://github.com/leontyko/reman_client)
+Telegram-бот, работающий с [клиентом reMan](https://github.com/leontyko/reman_client)
 
 ## Конфигурация
 
