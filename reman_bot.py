@@ -34,6 +34,7 @@ def cat_keyboard(chatId):
 	but_url = types.InlineKeyboardButton(text="Ссылка", callback_data="Url")
 	but_exec = types.InlineKeyboardButton(text="Приложение", callback_data="Exec")
 	but_cancel_power = types.InlineKeyboardButton(text="Отмена задач", callback_data="CancelPower")
+	but_media = types.InlineKeyboardButton(text="Медиа", callback_data="Media")
 	but_return = types.InlineKeyboardButton(text=back_button, callback_data="ClientMenu")
 	key.add(but_power, but_vol, but_url, but_exec, but_cancel_power, but_return)
 	return key
@@ -68,6 +69,14 @@ def delay_keyboard():
 	but_cancel = types.InlineKeyboardButton(text=back_button, callback_data="Power")
 	key.add(but_now, but_quorter, but_half, but_hour, but_one_and_half, but_cancel)
 	return key
+
+def media_keyboard(chatId):
+	key = types.InlineKeyboardMarkup()
+	but_play = types.InlineKeyboardButton(text="Пауза/Старт", callback_data="Pause")
+	but_next = types.InlineKeyboardButton(text="След.", callback_data="Next")
+	but_prev = types.InlineKeyboardButton(text="Пред.", callback_data="Prev")
+	but_cancel = types.InlineKeyboardButton(text=back_button, callback_data="ClientMenu")
+	key.add(but_now, but_quorter, but_half, but_hour, but_one_and_half, but_cancel)
 
 def get_clients(chat_id):
 	global context
@@ -133,6 +142,21 @@ def vol_query(context, data):
 		return
 
 def media_query(context, data):
+	url = base_url(context['client'])
+	url += 'media'
+	if data == 'Pause':
+		parameters = dict(cmd='playpause')
+	elif data == 'Next':
+		parameters = dict(cmd='nexttrack')
+	elif data == 'Prev':
+		parameters = dict(cmd='prevtrack')
+	try:
+		r = requests.get(url, parameters)
+		return r
+	except Exception as e:
+		return
+
+def app_query(context, data):
 	url = base_url(context['client'])
 	if data.startswith(app_prefix):
 		url += 'application'
@@ -209,7 +233,7 @@ def inline(message):
 def openLink(message):
 	data = url_prefix + message.text
 	try:
-		result = media_query(context[message.chat.id], data)
+		result = app_query(context[message.chat.id], data)
 		if result:
 			ok_or_fail(c.id, result)
 	except Exception as e:
@@ -292,6 +316,10 @@ def inline(c):
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 			return
+	elif c.data == 'Media':
+		key = media_keyboard(chatId)
+		text = client_prefix + context[chatId]['client'] + ". Выберите действие:"
+		bot.edit_message_text(chat_id=chatId, message_id=c.message.message_id, text=text, reply_markup=key)
 	elif c.data in ['shutdown', 'reboot', 'sleep']:
 		context[chatId]['cmd'] = c.data
 		key = delay_keyboard()
@@ -312,9 +340,15 @@ def inline(c):
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 			reinit_chat(c.message)
-	elif c.data.startswith((app_prefix, url_prefix)):
+	elif c.data in ['Pause', 'Next', 'Prev']:
 		try:
 			result = media_query(context[chatId], c.data)
+		except Exception as e:
+			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
+			reinit_chat(c.message)
+	elif c.data.startswith((app_prefix, url_prefix)):
+		try:
+			result = app_query(context[chatId], c.data)
 			if result:
 				ok_or_fail(c.id, result)
 		except Exception as e:
