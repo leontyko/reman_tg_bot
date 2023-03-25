@@ -22,7 +22,7 @@ context = {}
 
 back_button = '« Назад'
 client_prefix = 'Клиент - '
-oops = 'Упс.'
+oops = 'Что-то пошло не так.'
 success_text = 'Успешно!'
 url_prefix = 'url_'
 app_prefix = 'app_'
@@ -102,29 +102,28 @@ def base_url(client_name):
 	url = 'http://' + client['ip'] + ':' + client['port'] + '/'
 	return url
 
-def pwr_query(message, text):
+def pwr_query(chat_id, delay_text):
 	global context
-	url = base_url(context[message.chat.id]['client'])
+	url = base_url(context[chat_id]['client'])
 	url += 'power'
-	delay = 0
-	if text == 'Now': delay = 0
-	elif text == 'Quorter': delay = 15
-	elif text == 'Half': delay = 30
-	elif delay == 'Hour': delay = 60
-	elif delay == 'OneAndHalf': delay = 90
-	else: delay = int(text)
-	parameters = dict(cmd=context[message.chat.id]['cmd'], delay=delay)
+	if delay_text == 'Now': delay = 0
+	elif delay_text == 'Quorter': delay = 15
+	elif delay_text == 'Half': delay = 30
+	elif delay_text == 'Hour': delay = 60
+	elif delay_text == 'OneAndHalf': delay = 90
+	else: delay = int(delay_text)
+	parameters = dict(cmd=context[chat_id]['cmd'], delay=delay)
 	try:
 		r = requests.get(url, parameters)
-		context[message.chat.id].pop('cmd')
+		context[chat_id].pop('cmd')
 		return r
 	except Exception as e:
+		print(str(e))
 		return
 
-def vol_query(context, data):
-	url = base_url(context['client'])
+def vol_query(client, data):
+	url = base_url(client)
 	url += 'volume'
-	point = 0
 	if data == 'Up3':
 		parameters = dict(cmd='up',points=3)
 	elif data == 'Down3':
@@ -133,31 +132,33 @@ def vol_query(context, data):
 		parameters = dict(cmd='up',points=1)
 	elif data == 'Down1':
 		parameters = dict(cmd='down',points=1)
-	elif data == 'Mute':
+	else:
 		parameters = dict(cmd='mute')
 	try:
 		r = requests.get(url, parameters)
 		return r
 	except Exception as e:
+		print(str(e))
 		return
 
-def media_query(context, data):
-	url = base_url(context['client'])
+def media_query(client, data):
+	url = base_url(client)
 	url += 'media'
 	if data == 'Pause':
 		parameters = dict(cmd='playpause')
 	elif data == 'Next':
 		parameters = dict(cmd='nexttrack')
-	elif data == 'Prev':
+	else:
 		parameters = dict(cmd='prevtrack')
 	try:
 		r = requests.get(url, parameters)
 		return r
 	except Exception as e:
+		print(str(e))
 		return
 
-def app_query(context, data):
-	url = base_url(context['client'])
+def app_query(client, data):
+	url = base_url(client)
 	if data.startswith(app_prefix):
 		url += 'application'
 		data = data.lstrip(app_prefix)
@@ -171,13 +172,14 @@ def app_query(context, data):
 	except Exception as e:
 		return
 
-def cancel_query(message):
-	url = base_url(context['client'])
+def cancel_query(client):
+	url = base_url(client)
 	url += 'cancel'
 	try:
 		r = requests.get(url)
 		return r
-	except:
+	except Exception as e:
+		print(str(e))
 		return
 
 def test_client(client_name):
@@ -186,9 +188,10 @@ def test_client(client_name):
 		r = requests.get(url)
 		json_str = r.json()
 		aDict = json.loads(json_str)
-		if aDict['result'] == "ok":
+		if aDict[0].get('result') == 'ok':
 			return True
 	except Exception as e:
+		print(str(e))
 		return False
 	return False
 
@@ -198,10 +201,11 @@ def client_applications(client_name):
 	try:
 		r = requests.get(url)
 		json_str = r.json()
-		data = json.loads(json_str)
-		if data['result'] == "ok":
-			return data['applications']
+		aDict = json.loads(json_str)
+		if aDict[0].get('result') == 'ok':
+			return aDict[0].get('applications')
 	except Exception as e:
+		print(str(e))
 		return
 	return
 
@@ -211,18 +215,21 @@ def client_links(client_name):
 	try:
 		r = requests.get(url)
 		json_str = r.json()
-		data = json.loads(json_str)
-		if data['result'] == "ok":
-			return data['links']
+		aDict = json.loads(json_str)
+		if aDict[0].get('result') == 'ok':
+			return aDict[0].get('links')
 	except Exception as e:
+		print(str(e))
 		return
 	return
 
-def ok_or_fail(cid, result):
-	if result['status'] == 'ok':
-		bot.answer_callback_query(callback_query_id=cid, text=success_text, show_alert=True)
+def ok_or_fail(chat_id, result):
+	json_str = result.json()
+	aDict = json.loads(json_str)
+	if aDict[0].get('result') == 'ok':
+		bot.send_message(chat_id, success_text)
 	else:
-		bot.answer_callback_query(callback_query_id=cid, text='Ошибка: ' + result['detail'], show_alert=True)
+		bot.send_message(chat_id, 'Ошибка: ' + aDict[0].get('detail'))
 
 @bot.message_handler(commands=["start"])
 def inline(message):
@@ -231,25 +238,30 @@ def inline(message):
 		init_chat(message.chat.id)
 
 def openLink(message):
+	global context
+	client = context[message.chat.id]['client']
 	data = url_prefix + message.text
 	try:
-		result = app_query(context[message.chat.id], data)
+		result = app_query(client, data)
 		if result:
-			ok_or_fail(c.id, result)
+			ok_or_fail(message.chat.id, result)
 	except Exception as e:
 		bot.send_message(message.chat.id, "Произошла ошибка: " + str(e))
 	init_chat(message.chat.id)
 	
 def powerCommand(message):
-	if not message.text.isdigit():
+	if not message.text.isdigit():   
+		if message.text == '/start':
+			reinit_chat(message)
+			return
 		key = delay_keyboard()
-		msg = bot.reply_to(message, 'Количество минут должно быть указано в числовом формате. Когда выполнить действие?', reply_markup=key)
-		bot.register_next_step_handler(msg, powerCommand)
+		bot.reply_to(message, 'Количество минут должно быть указано в числовом формате. Когда выполнить действие?', reply_markup=key)
+		bot.register_next_step_handler(message, powerCommand)
 		return
 	try:
-		result = pwr_query(message, message.text)
+		result = pwr_query(message.chat.id, message.text)
 		if result:
-			ok_or_fail(c.id, result)
+			ok_or_fail(message.chat.id, result)
 	except Exception as e:
 		bot.send_message(message.chat.id, "Произошла ошибка: " + str(e))
 	init_chat(message.chat.id)
@@ -282,15 +294,16 @@ def inline(c):
 		text = client_prefix + context[chatId]['client'] + ". Выберите действие:"
 		bot.edit_message_text(chat_id=chatId, message_id=c.message.message_id, text=text, reply_markup=key)
 	elif c.data == 'Url':
-		url_list = client_links(context[chatId]['client'])
+		client = context[chatId]['client']
+		url_list = client_links(client)
 		key = types.InlineKeyboardMarkup()
 		if url_list and len(url_list)>0:
 			for url in url_list:
 				url_name = url_prefix + url
 				key.add(types.InlineKeyboardButton(text=url, callback_data=url_name))
-			text = client_prefix + context[chatId]['client'] + ". Выберите линк или отправьте ссылку сообщением ниже:"
+			text = client_prefix + client + ". Выберите линк или отправьте ссылку сообщением ниже:"
 		else:
-			text = client_prefix + context[chatId]['client'] + ". Отправьте ссылку сообщением ниже:"
+			text = client_prefix + client + ". Отправьте ссылку сообщением ниже:"
 		but_cancel = types.InlineKeyboardButton(back_button, callback_data=context[chatId]['client'])
 		key.add(but_cancel)
 		bot.edit_message_text(chat_id=chatId, message_id=c.message.message_id, text=text, reply_markup=key)
@@ -310,9 +323,9 @@ def inline(c):
 		bot.edit_message_text(chat_id=chatId, message_id=c.message.message_id, text=text, reply_markup=key)
 	elif c.data == 'CancelPower':
 		try:
-			result = cancel_query(c.message)
+			result = cancel_query(context[chatId]['client'])
 			if result:
-				ok_or_fail(c.id, result)
+				ok_or_fail(chatId, result)
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 			return
@@ -328,29 +341,29 @@ def inline(c):
 		bot.register_next_step_handler(c.message, powerCommand)
 	elif c.data in ['Now', 'Quorter', 'Half', 'Hour', 'OneAndHalf']:
 		try:
-			result = pwr_query(c.message, c.data)
+			result = pwr_query(chatId, c.data)
 			if result:
-				ok_or_fail(c.id, result)
+				ok_or_fail(chatId, result)
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 		reinit_chat(c.message)
 	elif c.data in ['Up3', 'Down3', 'Up1', 'Down1', 'Mute']:
 		try:
-			result = vol_query(context[chatId], c.data)
+			result = vol_query(context[chatId]['client'], c.data)
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 			reinit_chat(c.message)
 	elif c.data in ['Pause', 'Next', 'Prev']:
 		try:
-			result = media_query(context[chatId], c.data)
+			result = media_query(context[chatId]['client'], c.data)
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 			reinit_chat(c.message)
 	elif c.data.startswith((app_prefix, url_prefix)):
 		try:
-			result = app_query(context[chatId], c.data)
+			result = app_query(context[chatId]['client'], c.data)
 			if result:
-				ok_or_fail(c.id, result)
+				ok_or_fail(chatId, result)
 		except Exception as e:
 			bot.answer_callback_query(callback_query_id=c.id, text=oops, show_alert=True)
 		reinit_chat(c.message)

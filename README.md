@@ -1,6 +1,6 @@
 # reMan Telegram bot
 
-Telegram-бот, работающий с [клиентом reMan](https://github.com/leontyko/reman_client)
+Telegram-бот для удалённого управления функциями компьютера, работающий с [клиентом reMan](https://github.com/leontyko/reman_client)
 
 ## Конфигурация
 
